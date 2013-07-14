@@ -1586,6 +1586,9 @@ public class Resizer {
 
         BufferedImage result = null;
 
+        int originalTargetWidth = targetWidth;
+        int originalTargetHeight = targetHeight;
+
         int currentWidth = src.getWidth();
         int currentHeight = src.getHeight();
 
@@ -1622,9 +1625,6 @@ public class Resizer {
                 if (targetWidth == currentWidth)
                     return src;
 
-                // Save for detailed logging (this is cheap).
-                int originalTargetHeight = targetHeight;
-
 				/*
 				 * Landscape or Square Orientation: Ignore the given height and
 				 * re-calculate a proportionally correct value based on the
@@ -1641,46 +1641,16 @@ public class Resizer {
                 if (targetWidth == currentWidth && targetHeight == currentHeight)
                     return src;
 
-                int originalTargetWidth = targetWidth;
-                int originalTargetHeight = targetHeight;
+                float cropRatioWidth = (float)targetWidth / (float)currentWidth;
+                float cropRatioHeight = (float)targetHeight / (float)currentHeight;
+                float cropRatio = Math.max(cropRatioWidth, cropRatioHeight);
 
-                // Do we need to crop
-                int cropWidth = currentWidth;
-                int cropHeight = currentHeight;
-                if (ratio != 1) {
-                    // Calculate crop x offset and new original width to use when cropping
-                    int xOffset = 0;
-                    if (ratio < 1) {
-                        cropWidth = Math.round((float)currentWidth * ratio);
-                        xOffset = Math.round((float)(currentWidth - cropWidth) / 2f);
-                    }
-
-                    // Calculate crop y offset and new original height to use when cropping
-                    int yOffset = 0;
-                    if (ratio > 1) {
-                        cropHeight = Math.round((float)currentHeight / ratio);
-                        yOffset = Math.round((float)(currentHeight - cropHeight) / 2f);
-                    }
-                    // Crop to fit within the target height and width
-                    src = crop(src, xOffset, yOffset, cropWidth, cropHeight);
-                }
-
-                // Calculate resize
-                float cropRatio = Math.max((float)targetWidth / cropWidth, (float)targetHeight / cropHeight);
-                targetWidth  = Math.round((float)cropWidth * cropRatio);
-                targetHeight = Math.round((float)cropHeight * cropRatio);
-
-                // If the calculated size is bigger than what was sent in, return what was sent in instead.
-                targetWidth = (int)Math.ceil(targetWidth > originalTargetWidth ? originalTargetWidth : targetWidth);
-                targetHeight = (int)Math.ceil(targetHeight > originalTargetHeight ? originalTargetHeight : targetHeight);
-
+                targetWidth = (int)Math.ceil((float)currentWidth * cropRatio);
+                targetHeight = (int)Math.ceil((float)currentHeight * cropRatio);
             } else {
                 // First make sure we need to do any work in the first place
                 if (targetHeight == currentHeight)
                     return src;
-
-                // Save for detailed logging (this is cheap).
-                int originalTargetWidth = targetWidth;
 
 				/*
 				 * Portrait Orientation: Ignore the given width and re-calculate
@@ -1760,6 +1730,13 @@ public class Resizer {
                         targetHeight, scalingMethod,
                         RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             }
+        }
+
+        if (resizeMode == Mode.CROP && (targetWidth > originalTargetWidth || targetHeight > originalTargetHeight)) {
+            int xOffset = (targetWidth - originalTargetWidth) / 2;
+            int yOffset = (targetHeight - originalTargetHeight) / 2;
+
+            result = crop(result, xOffset, yOffset, originalTargetWidth, originalTargetHeight);
         }
 
         if (DEBUG)
